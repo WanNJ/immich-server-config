@@ -12,35 +12,23 @@ services:
   immich-server:
     container_name: immich_server
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    # extends:
+    #   file: hwaccel.transcoding.yml
+    #   service: cpu # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
     volumes:
+      # Do not edit the next line. If you want to change the media storage location on your system, edit the value of UPLOAD_LOCATION in the .env file
       - ${UPLOAD_LOCATION}:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
     env_file:
       - .env
     ports:
-      - 2283:3001
+      - '2283:2283'
     depends_on:
       - redis
       - database
     restart: always
-
-  # Breaking changes introduced: https://github.com/immich-app/immich/releases?page=2
-  # immich-microservices:
-  #   container_name: immich_microservices
-  #   image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
-  #   # extends:
-  #   #   file: hwaccel.yml
-  #   #   service: hwaccel
-  #   command: [ "start.sh", "microservices" ]
-  #   volumes:
-  #     - ${UPLOAD_LOCATION}:/usr/src/app/upload
-  #     - /etc/localtime:/etc/localtime:ro
-  #   env_file:
-  #     - .env
-  #   depends_on:
-  #     - redis
-  #     - database
-  #   restart: always
+    healthcheck:
+      disable: false
 
   immich-machine-learning:
     container_name: immich_machine_learning
@@ -55,10 +43,14 @@ services:
     env_file:
       - .env
     restart: always
+    healthcheck:
+      disable: false
 
   redis:
     container_name: immich_redis
-    image: redis:6.2-alpine@sha256:c5a607fb6e1bb15d32bbcf14db22787d19e428d59e31a5da67511b49bb0f1ccc
+    image: docker.io/redis:6.2-alpine@sha256:2ba50e1ac3a0ea17b736ce9db2b0a9f6f8b85d4c27d5f5accc6a416d8f42c6d5
+    healthcheck:
+      test: redis-cli ping || exit 1
     restart: always
 
   database:
@@ -78,9 +70,23 @@ services:
       interval: 5m
       start_interval: 30s
       start_period: 5m
-    command: ["postgres", "-c" ,"shared_preload_libraries=vectors.so", "-c", 'search_path="$$user", public, vectors', "-c", "logging_collector=on", "-c", "max_wal_size=2GB", "-c", "shared_buffers=512MB", "-c", "wal_compression=on"]
+    command:
+      [
+        'postgres',
+        '-c',
+        'shared_preload_libraries=vectors.so',
+        '-c',
+        'search_path="$$user", public, vectors',
+        '-c',
+        'logging_collector=on',
+        '-c',
+        'max_wal_size=2GB',
+        '-c',
+        'shared_buffers=512MB',
+        '-c',
+        'wal_compression=on',
+      ]
     restart: always
-
 
 volumes:
   pgdata:
