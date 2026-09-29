@@ -122,8 +122,25 @@
 
 ### 首次启动后要在 Immich 里设置的（导入前）
 
-- 存储模板：开启，`{{y}}/{{y}}-{{MM}}-{{dd}}/{{filename}}`（与旧库目录结构一致）。
-- 视频转码：硬件加速 `nvenc`，开启硬件解码。
+所有设置都在 `immich-settings.json` 里，用脚本一次应用（只改文件里列出的项，其他保持 Immich 默认）：
+
+```bash
+IMMICH_API_KEY=<管理员 API Key> ./apply-settings.py
+```
+
+硬件：Ryzen 7 5800X（8 核 16 线程）、32 GB 内存、RTX 3060 Ti 8 GB。
+
+| 设置 | 默认 | 我们的值 | 原因 |
+|---|---|---|---|
+| 存储模板 | 关闭 | `{{y}}/{{y}}-{{MM}}-{{dd}}/{{filename}}` | 与旧库目录结构一致 |
+| 缩略图并发 | 3 | 8 | CPU 任务，8 个物理核 |
+| 元数据提取并发 | 5 | 8 | 以读文件为主 |
+| 视频转码并发 | 1 | 3 | NVENC 编码 |
+| 人脸检测 / 智能搜索 / OCR 并发 | 2 / 2 / 1 | 4 / 4 / 2 | 跑在 GPU 上 |
+| 智能搜索模型 | `ViT-B-32__openai`（仅英文） | `nllb-clip-large-siglip__v1`（多语言，支持中文） | GPU 跑得动大模型 |
+| 视频转码 | 关闭硬件加速、`ultrafast` | `nvenc` + 硬件解码、`medium` | 显卡编码快，换更好的画质 |
+
+测试（1,606 个文件）：换模型后重建智能搜索索引用了 7.5 分钟（含首次下载模型），GPU 峰值 100%，显存峰值 3.9 GB / 8 GB；中文搜索响应约 40 ms。
 
 ### 测试结果（2026-09-29，SSD 临时实例，220 个文件）
 
@@ -144,7 +161,7 @@
 2. ~~测试实例~~：已完成并删除。
 3. **格式化 sda 为 ext4**（需要 sudo，按序列号 `WD-WX72D22ESR5C` 定位），更新 `/etc/fstab`：
    `UUID=<新UUID>  /mnt/data  ext4  defaults,noatime,nofail  0  2`，然后 `mkdir /mnt/data/immich && chown jackwan:jackwan`。
-4. `docker compose up -d`，注册管理员，设置存储模板和 NVENC，创建 API Key。
+4. `docker compose up -d`，注册管理员，创建 API Key，运行 `./apply-settings.py` 应用 `immich-settings.json`。
 5. 两个 immich-go 并行导入：`immich-backup` 导入一部分年份、`immich-backup2` 导入另一部分。
 6. 运行「存储模板迁移」任务，把实况照片的视频部分移入 `library/`。然后核对：Immich 里的资源数应与备份盘文件数一致（146,875 个文件，实况照片的视频部分会被隐藏合并）。
 7. 等缩略图、人脸识别、转码跑完（1–2 天），再用 `rsync --delete` 以新库重建 `immich-backup`、`immich-backup2`（新库目录结构与旧备份不完全相同）。
