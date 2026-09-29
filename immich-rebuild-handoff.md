@@ -133,7 +133,7 @@
 - 视频转码日志显示 `NVENC-accelerated encoding and decoding`。
 - 存储模板生效：文件落在 `library/admin/年/年-月-日/原文件名`。
 - 注意：`TZ=America/Los_Angeles` 下，接近午夜的照片会落在和旧备份不同的日期文件夹（旧实例是 UTC），属正常。
-- 13 个实况照片的视频部分上传后留在 `upload/`（合并隐藏时存储模板跳过了）。手动运行一次「存储模板迁移」任务（`PUT /api/jobs/storageTemplateMigration {"command":"start"}`）后全部归位。**正式导入完成后要跑一次这个任务。**
+- 13 个实况照片的视频部分上传后留在 `upload/`（合并隐藏时存储模板跳过了）。手动运行一次「存储模板迁移」任务（`PUT /api/jobs/storageTemplateMigration {"command":"start"}`）后全部归位。**正式导入完成后要跑一次这个任务。** 原因推测：实况照片的照片和视频分开上传，视频被合并隐藏时它自己的移动步骤被跳过（日志里有「文件找不到」的竞争警告）。文件在数据库里记录正确，不影响使用，但只备份 `library/` 会漏掉它们，所以备份范围要包含 `upload/`（见第 7 节第 9 步）。
 
 ---
 
@@ -149,7 +149,9 @@
 6. 运行「存储模板迁移」任务，把实况照片的视频部分移入 `library/`。然后核对：Immich 里的资源数应与备份盘文件数一致（146,875 个文件，实况照片的视频部分会被隐藏合并）。
 7. 等缩略图、人脸识别、转码跑完（1–2 天），再用 `rsync --delete` 以新库重建 `immich-backup`、`immich-backup2`（新库目录结构与旧备份不完全相同）。
 8. 可选：根据 `immich_import_A.csv` 用 API 重建相册。
-9. 设置定期备份：`rsync -rt --partial /mnt/data/immich/library <备份盘>/immich/`，外加数据库 `pg_dump`。
+9. 设置定期备份：**备份整个 `UPLOAD_LOCATION` 的原始文件目录**，而不只是 `library/`（有些文件，比如实况照片的视频部分，可能暂时留在 `upload/`）：
+   `rsync -rt --partial --exclude=thumbs --exclude=encoded-video /mnt/data/immich/ <备份盘>/immich/`
+   外加数据库备份（Immich 自带的每日 `pg_dump` 在 `/mnt/data/immich/backups/`，会随上面的 rsync 一起备份）。
 
 ---
 
