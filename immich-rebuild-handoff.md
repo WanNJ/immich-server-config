@@ -6,6 +6,8 @@
 > **2026-09-29 更新摘要**：方案从「NTFS 原盘 + External Library」改为「WD 盘格式化为 ext4 + 用 immich-go 从备份盘导入到内部库」。
 > 原因：备份盘已就绪（空间问题不复存在），ext4 读照片比 ntfs-3g 快 3–4 倍。目标版本 v3.2.4（原文写的 v3.2.0 已过时）。
 > 旧方案保留在第 9 节作为历史记录。
+>
+> **进度（2026-09-29 18:00）**：第二份备份已核对（146,875 个文件、1,494.3 GB，与第一份逐文件一致，抽样 300 个 SHA-256 一致）；FYQ-LU 已改名为 `immich-backup2`。sda 已用 `format-wd-ext4.sh` 格式化为 ext4（`/dev/sda1`，UUID `d00db64d-8f0b-436b-80ff-c2b98dfe208a`，fstab 已更新，旧 fstab 备份在 `/etc/fstab.bak-ntfs-20260929`）。旧 v1.131.3 数据库备份按决定未保留。正式实例 v3.2.4 已启动，待注册管理员后导入。
 
 ---
 
@@ -29,9 +31,9 @@
 |---|---|---|---|---|---|
 | `nvme1n1` | Sabrent Rocket 4 Plus | 1 TB | ext4 | `/` | Ubuntu 24.04.3；Immich 数据库、配置；`~/backups`、两个 `*-tm-rescue` |
 | `nvme0n1` | SPCC | 1 TB | NTFS | 不挂载 | Windows |
-| `sda` | WD40EZAZ，WD-WX72D22ESR5C（内置 SATA） | 3.7 TB | **NTFS（无分区表）**，`immich-disk` | `/mnt/data` | Immich 照片库 → **待格式化为 ext4** |
+| `sda` | WD40EZAZ，WD-WX72D22ESR5C（内置 SATA） | 3.7 TB | **ext4**（GPT，`sda1`），`immich-disk` | `/mnt/data` | Immich 照片库，`UPLOAD_LOCATION=/mnt/data/immich` |
 | `sdb` | Seagate BUP Slim WH，NA7Z04Q5（USB） | 1.8 TB | ext4，`immich-backup` | `/media/jackwan/immich-backup` | 照片库完整副本 1（已核对） |
-| `sdd` | Seagate BUP Slim RD，NA7WAZGF（USB） | 1.8 TB | ext4，`FYQ-LU` → 待改名 `immich-backup2` | `/media/jackwan/FYQ-LU` | 照片库副本 2（同步中），之后放异地 |
+| `sdd` | Seagate BUP Slim RD，NA7WAZGF（USB） | 1.8 TB | ext4，`immich-backup2` | `/media/jackwan/immich-backup2` | 照片库副本 2（已核对），之后放异地 |
 | `sdc` | WD My Passport，WD-WX51A555A4EU（USB） | 1 TB | ext4，`OldPersonalFiles` | `/media/jackwan/OldPersonalFiles` | `~/yaqi-tm-rescue`、`~/jack-tm-rescue`、`~/backups`（→ `old-backups/`）的备份 |
 
 移动硬盘**不写入 fstab**（用户要求），插上后由桌面自动挂载。
@@ -156,13 +158,11 @@ IMMICH_API_KEY=<管理员 API Key> ./apply-settings.py
 
 ## 7. 剩余步骤
 
-1. **等 `FYQ-LU` 同步完成并核对**（照片库第二份副本）。然后改卷标：
-   `sudo e2label /dev/disk/by-id/usb-Seagate_BUP_Slim_RD_NA7WAZGF-0:0-part1 immich-backup2`
+1. ~~第二份备份~~：已完成并核对，已改名 `immich-backup2`。
 2. ~~测试实例~~：已完成并删除。
-3. **格式化 sda 为 ext4**（需要 sudo，按序列号 `WD-WX72D22ESR5C` 定位），更新 `/etc/fstab`：
-   `UUID=<新UUID>  /mnt/data  ext4  defaults,noatime,nofail  0  2`，然后 `mkdir /mnt/data/immich && chown jackwan:jackwan`。
+3. ~~格式化 sda~~：已完成（`sudo bash format-wd-ext4.sh`，脚本在本仓库）。
 4. `docker compose up -d`，注册管理员，创建 API Key，运行 `./apply-settings.py` 应用 `immich-settings.json`。
-5. 两个 immich-go 并行导入：`immich-backup` 导入一部分年份、`immich-backup2` 导入另一部分。
+5. 两个 immich-go 并行导入（测速：两盘单独读照片 54–64 MB/s，同时读合计约 190 MB/s）：`immich-backup` → 2000–2022（86,137 个文件，743 GB），`immich-backup2` → 2023–2026（60,737 个文件，751 GB）。不开启 RAW/JPG、连拍堆叠。
 6. 运行「存储模板迁移」任务，把实况照片的视频部分移入 `library/`。然后核对：Immich 里的资源数应与备份盘文件数一致（146,875 个文件，实况照片的视频部分会被隐藏合并）。
 7. 等缩略图、人脸识别、转码跑完（1–2 天），再用 `rsync --delete` 以新库重建 `immich-backup`、`immich-backup2`（新库目录结构与旧备份不完全相同）。
 8. 可选：根据 `immich_import_A.csv` 用 API 重建相册。
