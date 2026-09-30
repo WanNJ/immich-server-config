@@ -137,12 +137,16 @@ IMMICH_API_KEY=<管理员 API Key> ./apply-settings.py
 | 存储模板 | 关闭 | `{{y}}/{{y}}-{{MM}}-{{dd}}/{{filename}}` | 与旧库目录结构一致 |
 | 缩略图并发 | 3 | 8 | CPU 任务，8 个物理核 |
 | 元数据提取并发 | 5 | 8 | 以读文件为主 |
-| 视频转码并发 | 1 | 3 | NVENC 编码 |
-| 人脸检测 / 智能搜索 / OCR 并发 | 2 / 2 / 1 | 4 / 4 / 2 | 跑在 GPU 上 |
+| 视频转码并发 | 1 | 2 | NVENC 编码（3 路时和 ML 抢显存） |
+| 人脸检测 / 智能搜索 / OCR 并发 | 2 / 2 / 1 | 2 / 2 / 1 | 跑在 GPU 上；调高会显存不足 |
 | 智能搜索模型 | `ViT-B-32__openai`（仅英文） | `nllb-clip-large-siglip__v1`（多语言，支持中文） | GPU 跑得动大模型 |
 | 视频转码 | 关闭硬件加速、`ultrafast` | `nvenc` + 硬件解码、`medium` | 显卡编码快，换更好的画质 |
 
-**⚠️ 坑（2026-09-29 正式实例）**：更换 CLIP 模型时，Immich 会调整数据库向量维度（512 → 1152），期间暂停了缩略图、元数据、转码、人脸、智能搜索 5 个任务队列，**改完没有自动恢复**。结果上传的照片都没有缩略图，网页显示「Error loading image」。处理：在「管理 → 任务」里逐个点「继续」，或调用 `PUT /api/jobs/<队列名> {"command":"resume"}`。以后每次换模型后都要检查一下队列是否被暂停。
+**⚠️ 导入时遇到的坑（2026-09-29 正式实例）**
+
+1. **任务队列被暂停**：`immich-go` 默认 `--pause-immich-jobs=true`，上传期间会暂停 Immich 的后台队列，照片没有缩略图，网页显示「Error loading image」。（最初误以为是更换 CLIP 模型导致的，已更正。）要边导入边处理，加 `--pause-immich-jobs=false`；如果队列被暂停，在「管理 → 任务」里点「继续」，或 `PUT /api/jobs/<队列名> {"command":"resume"}`。
+2. **GPU 显存不足**：最初并发设为智能搜索 4、人脸 4、OCR 2、转码 3，多语言 CLIP 模型本身约占 4 GB，8 GB 显存被耗尽（ONNX Runtime「Failed to allocate memory」），部分人脸/OCR 任务失败，部分视频 NVENC 失败后退回 CPU。已降为 2 / 2 / 1 / 2（见 `immich-settings.json`）。导入后要对人脸识别、OCR 运行「处理缺失项」补跑。
+3. **immich-go 遇错即停**：默认 `--on-errors=stop`，服务器高负载时一次上传连接断开（`EOF`）就终止整个导入。改用 `--on-errors=continue`；重新运行会自动跳过已上传的文件。
 
 测试（1,606 个文件）：换模型后重建智能搜索索引用了 7.5 分钟（含首次下载模型），GPU 峰值 100%，显存峰值 3.9 GB / 8 GB；中文搜索响应约 40 ms。
 

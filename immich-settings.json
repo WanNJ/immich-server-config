@@ -1,19 +1,33 @@
 {
-  "_comment": "Overrides applied on top of Immich defaults by apply-settings.py. Hardware: Ryzen 7 5800X (8C/16T), 32 GB RAM, RTX 3060 Ti 8 GB.",
+  "_comment": "Overrides applied on top of Immich defaults by apply-settings.py. Hardware: Ryzen 7 5800X (8C/16T), 32 GB RAM, RTX 3060 Ti 8 GB. GPU concurrency kept low: the multilingual CLIP model alone needs ~4 GB VRAM; 4/4/2 + 3 NVENC ran out of GPU memory.",
   "storageTemplate": {
     "enabled": true,
     "template": "{{y}}/{{y}}-{{MM}}-{{dd}}/{{filename}}"
   },
   "job": {
-    "thumbnailGeneration": {"concurrency": 8},
-    "metadataExtraction": {"concurrency": 8},
-    "videoConversion": {"concurrency": 3},
-    "faceDetection": {"concurrency": 4},
-    "smartSearch": {"concurrency": 4},
-    "ocr": {"concurrency": 2}
+    "thumbnailGeneration": {
+      "concurrency": 8
+    },
+    "metadataExtraction": {
+      "concurrency": 8
+    },
+    "videoConversion": {
+      "concurrency": 2
+    },
+    "faceDetection": {
+      "concurrency": 2
+    },
+    "smartSearch": {
+      "concurrency": 2
+    },
+    "ocr": {
+      "concurrency": 1
+    }
   },
   "machineLearning": {
-    "clip": {"modelName": "nllb-clip-large-siglip__v1"}
+    "clip": {
+      "modelName": "nllb-clip-large-siglip__v1"
+    }
   },
   "ffmpeg": {
     "accel": "nvenc",
