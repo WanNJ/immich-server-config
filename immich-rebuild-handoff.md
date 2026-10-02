@@ -181,6 +181,8 @@ IMMICH_API_KEY=<管理员 API Key> ./apply-settings.py
 - SMART（10-02）：PASSED；Reallocated / Pending / Offline_Uncorrectable / UDMA_CRC 全为 0，32°C。**硬盘健康、不是线材问题**。
 - 结论：WD40EZAZ 是 SMR 盘，导入 1.5 TB 后又被高并发随机读，盘内部整理数据时停顿超过内核默认 30 秒超时。
 - 处理：缩略图 / 元数据 / 附属文件并发降为 2，读延迟从约 380 ms 降到约 56 ms。
+- 10-02 重启 `immich-server` 后，卡住的存储模板迁移恢复（约 400 个/分钟）。
+- `queue-keeper.py`：每 20 分钟检查队列，暂停的自动恢复；某队列连续 1 小时不动就重启 `immich-server`（最多每 2 小时一次）；记录 sda 的内核 I/O 错误；队列清空后补一次「处理缺失项」，再清空就退出（最长 24 小时）。日志 `queue-keeper.log`（不进 git）。运行：`IMMICH_API_KEY=... setsid nohup systemd-inhibit --what=sleep:idle ./queue-keeper.py &`
 - 备选：把 SCSI 超时调到 180 秒（`echo 180 | sudo tee /sys/block/sda/device/timeout`，重启后失效，要持久化需 udev 规则）。
 
 ## 7. 剩余步骤

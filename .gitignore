@@ -1,3 +1,4 @@
 postgres/
 .env
 tools/
+queue-keeper.log
