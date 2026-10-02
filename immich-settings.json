@@ -1,15 +1,15 @@
 {
-  "_comment": "Overrides applied on top of Immich defaults by apply-settings.py. Hardware: Ryzen 7 5800X (8C/16T), 32 GB RAM, RTX 3060 Ti 8 GB. GPU concurrency kept low: the multilingual CLIP model alone needs ~4 GB VRAM; 4/4/2 + 3 NVENC ran out of GPU memory.",
+  "_comment": "Overrides applied on top of Immich defaults by apply-settings.py. Hardware: Ryzen 7 5800X (8C/16T), 32 GB RAM, RTX 3060 Ti 8 GB. GPU concurrency kept low (multilingual CLIP needs ~4 GB VRAM). Disk-heavy jobs kept at 2: sda (WD40EZAZ) is an SMR drive that stalls >30 s under high random I/O, causing kernel I/O errors and stuck jobs (2026-10-01).",
   "storageTemplate": {
     "enabled": true,
     "template": "{{y}}/{{y}}-{{MM}}-{{dd}}/{{filename}}"
   },
   "job": {
     "thumbnailGeneration": {
-      "concurrency": 8
+      "concurrency": 2
     },
     "metadataExtraction": {
-      "concurrency": 8
+      "concurrency": 2
     },
     "videoConversion": {
       "concurrency": 2
@@ -22,6 +22,9 @@
     },
     "ocr": {
       "concurrency": 1
+    },
+    "sidecar": {
+      "concurrency": 2
     }
   },
   "machineLearning": {
